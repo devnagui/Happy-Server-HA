@@ -1,0 +1,20 @@
+# Private planning and deployment notes are not release material.
+/PLANO.md
+/LEVANTAMENTO.md
+/app/DOCS.md
+
+# Local configuration, credentials, data and build products.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+node_modules/
+.build/
+.cache/
+.runtime/
+coverage/
+*.log
+app/.secret-test-*/

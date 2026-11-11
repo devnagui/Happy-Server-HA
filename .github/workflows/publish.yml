@@ -1,0 +1,123 @@
+name: Publish ARM64 app
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: publish-arm64
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'devnagui/Happy-Server-HA'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out release source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Test app wrapper
+        run: node --test app/run.test.mjs
+
+      - name: Validate release metadata
+        id: metadata
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = aarch64
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import { appendFileSync, readFileSync } from 'node:fs';
+          const config = JSON.parse(readFileSync('app/config.json', 'utf8'));
+          const upstream = JSON.parse(readFileSync('app/upstream.json', 'utf8'));
+          assert.match(config.version, /^\d+\.\d+\.\d+$/);
+          assert.deepEqual(config.arch, ['aarch64']);
+          assert.equal(config.image, 'ghcr.io/devnagui/happy-server-ha-{arch}');
+          assert.equal(upstream.repository, 'https://github.com/slopus/happy.git');
+          assert.match(upstream.revision, /^[0-9a-f]{40}$/);
+          assert.equal(upstream.dockerfile, 'Dockerfile.server');
+          assert.equal(upstream.base_image, `happy-server-upstream:${upstream.revision}`);
+          const dockerfile = readFileSync('app/Dockerfile', 'utf8');
+          assert.ok(dockerfile.includes(`io.hass.version="${config.version}"`));
+          const values = {
+            image: `ghcr.io/devnagui/happy-server-ha-aarch64:${config.version}`,
+            repository: upstream.repository,
+            revision: upstream.revision,
+            base: upstream.base_image,
+          };
+          appendFileSync(process.env.GITHUB_OUTPUT,
+            Object.entries(values).map(([key, value]) => `${key}=${value}\n`).join(''));
+          NODE
+
+      - name: Fetch pinned public upstream
+        env:
+          UPSTREAM_REPOSITORY: ${{ steps.metadata.outputs.repository }}
+          UPSTREAM_REVISION: ${{ steps.metadata.outputs.revision }}
+        run: |
+          set -euo pipefail
+          upstream="$RUNNER_TEMP/happy-upstream"
+          git init "$upstream"
+          git -C "$upstream" remote add origin "$UPSTREAM_REPOSITORY"
+          git -C "$upstream" fetch --depth=1 origin "$UPSTREAM_REVISION"
+          git -C "$upstream" checkout --detach FETCH_HEAD
+          test "$(git -C "$upstream" rev-parse HEAD)" = "$UPSTREAM_REVISION"
+          cmp "$upstream/LICENSE" app/UPSTREAM-LICENSE
+
+      - name: Build native ARM64 upstream and app
+        env:
+          BASE_IMAGE: ${{ steps.metadata.outputs.base }}
+          APP_IMAGE: ${{ steps.metadata.outputs.image }}
+          SOURCE_URL: ${{ github.server_url }}/${{ github.repository }}
+        run: |
+          set -euo pipefail
+          upstream="$RUNNER_TEMP/happy-upstream"
+          docker build --platform linux/arm64 \
+            --file "$upstream/Dockerfile.server" \
+            --tag "$BASE_IMAGE" "$upstream"
+          docker build --platform linux/arm64 \
+            --build-arg "BUILD_FROM=$BASE_IMAGE" \
+            --label "org.opencontainers.image.source=$SOURCE_URL" \
+            --file app/Dockerfile --tag "$APP_IMAGE" app
+
+      - name: Log in to GHCR
+        env:
+          GHCR_TOKEN: ${{ github.token }}
+          GHCR_USER: ${{ github.actor }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$GHCR_TOKEN" | docker login ghcr.io \
+            --username "$GHCR_USER" --password-stdin
+
+      - name: Push version and record digest
+        env:
+          APP_IMAGE: ${{ steps.metadata.outputs.image }}
+        run: |
+          set -euo pipefail
+          docker push "$APP_IMAGE"
+          reference="$(docker inspect --format '{{index .RepoDigests 0}}' "$APP_IMAGE")"
+          digest="${reference##*@}"
+          [[ "$reference" == "${APP_IMAGE%:*}@"* ]]
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          {
+            printf '## Published ARM64 app\n\n'
+            printf -- '- Image: `%s`\n' "$APP_IMAGE"
+            printf -- '- Digest: `%s`\n' "$digest"
+            printf -- '- Immutable reference: `%s`\n' "$reference"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Log out of GHCR
+        if: always()
+        run: docker logout ghcr.io

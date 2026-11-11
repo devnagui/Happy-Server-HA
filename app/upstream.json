@@ -1,0 +1,7 @@
+{
+  "repository": "https://github.com/slopus/happy.git",
+  "revision": "ea925c2c51a5afce9fbed0816ec1e785b50f37d7",
+  "dockerfile": "Dockerfile.server",
+  "workdir": "/repo/packages/happy-server",
+  "base_image": "happy-server-upstream:ea925c2c51a5afce9fbed0816ec1e785b50f37d7"
+}
