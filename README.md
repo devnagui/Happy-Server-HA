@@ -5,9 +5,12 @@ Home Assistant app for **aarch64 only**. It uses external PostgreSQL and a
 separately configured HTTPS proxy; it does not provide a web frontend or
 Home Assistant ingress.
 
-This is release scaffolding, not evidence of a published image or a verified
-installation. Database provisioning, HTTPS routing, client configuration and
-deployment must be completed separately. See [app configuration](app/README.md).
+Version 0.1.0 is published by the native ARM64 release workflow. Its anonymously
+pullable image is `ghcr.io/devnagui/happy-server-ha-aarch64:0.1.0`, with digest
+`sha256:11414a3614f8f13bc21d62c0fc0266a4652f18128cc31102c77a01b3da58209e`.
+Publication does not prove a working installation: database provisioning,
+HTTPS routing and real clients must be validated separately.
+See [app configuration](app/README.md).
 
 ## Release
 
