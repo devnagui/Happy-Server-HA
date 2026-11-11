@@ -5,17 +5,19 @@ Home Assistant app for **aarch64 only**. It uses external PostgreSQL and a
 separately configured HTTPS proxy; it does not provide a web frontend or
 Home Assistant ingress.
 
-Version 0.1.0 is published by the native ARM64 release workflow. Its anonymously
-pullable image is `ghcr.io/devnagui/happy-server-ha-aarch64:0.1.0`, with digest
-`sha256:11414a3614f8f13bc21d62c0fc0266a4652f18128cc31102c77a01b3da58209e`.
+Version 0.1.1 is published by the native ARM64 release workflow. Its anonymously
+pullable image is `ghcr.io/devnagui/happy-server-ha-aarch64:0.1.1`, with digest
+`sha256:ad3bf12220a2280a5f2d5e490fb4a9529019b05cf001156d86a889b28a4d27dc`.
 Publication does not prove a working installation: database provisioning,
 HTTPS routing and real clients must be validated separately.
 See [app configuration](app/README.md).
 
 **Storage warning:** version 0.1.0 includes the full upstream runtime and can
 consume substantially more host storage than its registry download size.
-Do not install it on storage-constrained systems. A reduced-runtime release
-is being prepared with an enforced exported-filesystem size gate.
+Do not install it on storage-constrained systems. Version 0.1.1 supersedes it:
+CI measured 997,842,944 exported-rootfs bytes and 35,683 entries. Its compressed
+registry layers total 350,129,281 bytes. Plan for content store, snapshots,
+filesystem overhead and a free-space reserve, not just the download size.
 
 ## Release
 
@@ -37,7 +39,7 @@ requires fewer than 1,000,000,000 bytes, and tests native dependencies,
 PostgreSQL migrations, database writes and restart persistence.
 
 Only the version read from `app/config.json` is pushed:
-`ghcr.io/devnagui/happy-server-ha-aarch64:0.1.0` for the initial version.
+`ghcr.io/devnagui/happy-server-ha-aarch64:0.1.1` for the current version.
 No `latest` tag is produced. The job summary records the pushed digest.
 Release a new version rather than overwriting an installed version; keep the
 manifest and Dockerfile version label consistent.
