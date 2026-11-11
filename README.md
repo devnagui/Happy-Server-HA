@@ -12,6 +12,11 @@ Publication does not prove a working installation: database provisioning,
 HTTPS routing and real clients must be validated separately.
 See [app configuration](app/README.md).
 
+**Storage warning:** version 0.1.0 includes the full upstream runtime and can
+consume substantially more host storage than its registry download size.
+Do not install it on storage-constrained systems. A reduced-runtime release
+is being prepared with an enforced exported-filesystem size gate.
+
 ## Release
 
 The intended repository is
