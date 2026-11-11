@@ -68,7 +68,7 @@ jobs:
           UPSTREAM_REVISION: ${{ steps.metadata.outputs.revision }}
         run: |
           set -euo pipefail
-          upstream="$RUNNER_TEMP/happy-upstream"
+          upstream="$GITHUB_WORKSPACE/.build/happy-upstream"
           git init "$upstream"
           git -C "$upstream" remote add origin "$UPSTREAM_REPOSITORY"
           git -C "$upstream" fetch --depth=1 origin "$UPSTREAM_REVISION"
@@ -83,14 +83,35 @@ jobs:
           SOURCE_URL: ${{ github.server_url }}/${{ github.repository }}
         run: |
           set -euo pipefail
-          upstream="$RUNNER_TEMP/happy-upstream"
+          upstream="$GITHUB_WORKSPACE/.build/happy-upstream"
           docker build --platform linux/arm64 \
             --file "$upstream/Dockerfile.server" \
             --tag "$BASE_IMAGE" "$upstream"
           docker build --platform linux/arm64 \
             --build-arg "BUILD_FROM=$BASE_IMAGE" \
+            --build-context "upstream-source=$upstream" \
             --label "org.opencontainers.image.source=$SOURCE_URL" \
             --file app/Dockerfile --tag "$APP_IMAGE" app
+
+      - name: Gate complete exported root filesystem
+        env:
+          APP_IMAGE: ${{ steps.metadata.outputs.image }}
+        run: |
+          set -euo pipefail
+          container="$(docker create "$APP_IMAGE")"
+          archive="$GITHUB_WORKSPACE/.build/happy-rootfs.tar"
+          trap 'docker rm -f "$container" >/dev/null; rm -f "$archive"' EXIT
+          docker export --output "$archive" "$container"
+          bytes="$(stat --format=%s "$archive")"
+          entries="$(tar -tf "$archive" | wc -l)"
+          printf 'Exported root filesystem: %s bytes, %s entries\n' "$bytes" "$entries"
+          test "$bytes" -lt 1000000000
+          printf 'Exported root filesystem: %s bytes, %s entries\n' "$bytes" "$entries" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Smoke test ARM64 migrations, database writes and restart
+        env:
+          APP_IMAGE: ${{ steps.metadata.outputs.image }}
+        run: node app/smoke.mjs "$APP_IMAGE"
 
       - name: Log in to GHCR
         env:
@@ -106,6 +127,13 @@ jobs:
           APP_IMAGE: ${{ steps.metadata.outputs.image }}
         run: |
           set -euo pipefail
+          if result="$(docker manifest inspect "$APP_IMAGE" 2>&1)"; then
+            echo 'Refusing to overwrite an existing version tag.' >&2
+            exit 1
+          elif ! grep -Eiq 'manifest unknown|no such manifest|manifest_unknown' <<< "$result"; then
+            echo 'Cannot establish that the version tag is unused; refusing publication.' >&2
+            exit 1
+          fi
           docker push "$APP_IMAGE"
           reference="$(docker inspect --format '{{index .RepoDigests 0}}' "$APP_IMAGE")"
           digest="${reference##*@}"

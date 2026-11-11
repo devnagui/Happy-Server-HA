@@ -30,6 +30,12 @@ runner, then builds `app/Dockerfile` using that local base. It authenticates to
 GHCR using only the job's short-lived GitHub token. The app image receives the
 repository source label for GHCR linkage.
 
+The app build also requires the same pinned checkout as the named
+`upstream-source` build context. The slim runtime deploys only the server's
+dependency graph. Before publication, CI exports the complete root filesystem,
+requires fewer than 1,000,000,000 bytes, and tests native dependencies,
+PostgreSQL migrations, database writes and restart persistence.
+
 Only the version read from `app/config.json` is pushed:
 `ghcr.io/devnagui/happy-server-ha-aarch64:0.1.0` for the initial version.
 No `latest` tag is produced. The job summary records the pushed digest.
@@ -51,6 +57,7 @@ The intended release files are:
 - `.github/workflows/publish.yml`
 - `app/.dockerignore`, `app/Dockerfile`, `app/config.json`
 - `app/upstream.json`, `app/run.mjs`, `app/run.test.mjs`, `app/README.md`
+- `app/smoke.mjs`
 - `app/UPSTREAM-LICENSE`
 
 Private planning and deployment notes are excluded by `.gitignore`. Ignore

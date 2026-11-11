@@ -101,6 +101,15 @@ test('Supervisor configuration keeps the backend private and permissions narrow'
   assert.equal(manifest.hassio_api, undefined);
   assert.equal(manifest.docker_api, undefined);
   assert.deepEqual(Object.keys(manifest.options).sort(), Object.keys(manifest.schema).sort());
+  const dockerfile = await readFile(new URL('./Dockerfile', import.meta.url), 'utf8');
+  assert.equal(manifest.version, '0.1.1');
+  assert.ok(dockerfile.includes(`io.hass.version="${manifest.version}"`));
+  assert.ok(dockerfile.includes('FROM node:24-bookworm-slim'));
+  assert.ok(dockerfile.includes('deploy --legacy --prod /runtime'));
+  const wrapper = await readFile(new URL('./run.mjs', import.meta.url), 'utf8');
+  for (const executable of ['prisma', 'tsx']) {
+    assert.ok(wrapper.includes('`${workdir}/node_modules/.bin/' + executable + '`'));
+  }
 });
 
 test('child output is redacted across writes and nonzero exits remain failures', async () => {

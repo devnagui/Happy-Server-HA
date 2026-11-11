@@ -1,7 +1,7 @@
 {
   "name": "Happy Private Server",
   "description": "Personal Happy synchronization backend with external PostgreSQL",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "slug": "happy_private",
   "arch": ["aarch64"],
   "image": "ghcr.io/devnagui/happy-server-ha-{arch}",

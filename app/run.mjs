@@ -134,13 +134,13 @@ export async function main() {
   delete environment.S3_HOST;
   const secrets = [...config.secrets, secret];
   process.stdout.write('Applying Happy PostgreSQL migrations.\n');
-  const migration = await runChild('/repo/node_modules/.bin/prisma',
+  const migration = await runChild(`${workdir}/node_modules/.bin/prisma`,
     ['migrate', 'deploy'], environment, secrets);
   if (migration.code !== 0 || migration.signal) {
     throw new Error('Database migrations did not complete; the server was not started.');
   }
   process.stdout.write('Starting Happy on internal HTTP port 3005.\n');
-  const server = await runChild('/repo/node_modules/.bin/tsx',
+  const server = await runChild(`${workdir}/node_modules/.bin/tsx`,
     ['./sources/main.ts'], environment, secrets);
   if (server.signal) {
     process.exitCode = server.signal === 'SIGTERM' || server.signal === 'SIGINT' ? 0 : 1;
